@@ -1,0 +1,49 @@
+name: Update audio manifest
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "*.mp3"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate manifest.json
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          ids = []
+          for file in Path(".").glob("*.mp3"):
+              try:
+                  ids.append(int(file.stem))
+              except ValueError:
+                  print(f"Ignored: {file.name}")
+
+          Path("manifest.json").write_text(
+              json.dumps({"audioIds": sorted(set(ids))}, indent=2) + "\n",
+              encoding="utf-8"
+          )
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --cached --quiet; then
+            echo "No manifest changes"
+            exit 0
+          fi
+          git commit -m "Update audio manifest"
+          git push
